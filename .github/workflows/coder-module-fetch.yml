@@ -19,6 +19,47 @@ jobs:
       # ============= InvisiRisk Setup End =============
       - uses: actions/checkout@v4
 
+      - name: Start request logger
+        run: |
+          cat > /tmp/server.py <<'PY'
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+      
+          class Handler(BaseHTTPRequestHandler):
+              def _handle(self):
+                  length = int(self.headers.get("Content-Length", 0))
+                  body = self.rfile.read(length).decode("utf-8", errors="replace") if length else ""
+      
+                  print("\n=== REQUEST ===", flush=True)
+                  print(f"{self.command} {self.path}", flush=True)
+                  print(self.headers, flush=True)
+                  if body:
+                      print(body, flush=True)
+                  print("===============\n", flush=True)
+      
+                  self.send_response(200)
+                  self.end_headers()
+                  self.wfile.write(b"OK")
+      
+              do_GET = _handle
+              do_POST = _handle
+              do_PUT = _handle
+              do_DELETE = _handle
+              do_PATCH = _handle
+      
+              def log_message(self, format, *args):
+                  pass
+      
+          HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+          PY
+      
+          python /tmp/server.py &
+          echo $! > /tmp/server.pid
+
+
+      - name: Redirect hostname
+        run: |
+          echo "127.0.0.1 registry.coder.com" | sudo tee -a /etc/hosts
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.x"
