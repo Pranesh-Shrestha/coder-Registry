@@ -1,0 +1,31 @@
+name: coder-registry-fetch
+
+on:
+  workflow_dispatch:   # run it manually while you watch BAF
+  push:
+    paths:
+      - "template/**"
+
+jobs:
+  terraform-init:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Init (downloads module from registry.coder.com)
+        working-directory: template
+        run: terraform init -input=false
+
+      - name: Validate
+        working-directory: template
+        run: terraform validate
+
+      - name: Show what was fetched
+        working-directory: template
+        run: |
+          find .terraform/modules -maxdepth 3 -type d
+          cat .terraform/modules/modules.json | python3 -m json.tool
